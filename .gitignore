@@ -1,0 +1,6 @@
+./dataset/audio-files/*.wav
+./dataset/video-files/*.flv
+__pycache__/
+*.pyc
+*.pyc
+crema_d_data.csv
