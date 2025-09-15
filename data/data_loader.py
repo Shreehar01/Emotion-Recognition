@@ -6,14 +6,17 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 
 class CremaDDataset(Dataset):
+    """ Custom PyTorch Dataset for the CREMA-D data. """
     def __init__(self, df, tokenizer, config, emotion_to_idx=None):
         self.df = df
         self.tokenizer = tokenizer
         self.config = config
+        
         if emotion_to_idx:
             self.emotion_to_idx = emotion_to_idx
         else:
             self.emotion_to_idx = {emotion: i for i, emotion in enumerate(df['emotion'].unique())}
+        
         self.idx_to_emotion = {i: emotion for emotion, i in self.emotion_to_idx.items()}
         self.video_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -26,6 +29,8 @@ class CremaDDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
+        
+        # Audio processing
         try:
             waveform, sr = torchaudio.load(row['audio_path'])
             if sr != self.config.SAMPLE_RATE:
@@ -37,12 +42,17 @@ class CremaDDataset(Dataset):
             mfcc = mfcc_transform(waveform).mean(dim=-1).squeeze()
         except Exception as e:
             mfcc = torch.zeros(self.config.N_MFCC)
+
+        # Video processing
         video_frames = self._load_video_frames(row['video_path'])
+
+        # Text processing
         encoding = self.tokenizer.encode_plus(
             row['transcription'], add_special_tokens=True, max_length=self.config.MAX_TEXT_LEN,
             return_token_type_ids=False, padding='max_length', return_attention_mask=True,
             return_tensors='pt', truncation=True
         )
+
         return {
             'text_ids': encoding['input_ids'].flatten(),
             'attention_mask': encoding['attention_mask'].flatten(),
@@ -52,14 +62,17 @@ class CremaDDataset(Dataset):
         }
 
     def _load_video_frames(self, path):
+        """ Loads, samples, and transforms frames from a video file. """
         cap = cv2.VideoCapture(path)
         frames = []
         if not cap.isOpened():
             while len(frames) < self.config.FRAME_COUNT:
                 frames.append(torch.zeros(3, self.config.IMAGE_SIZE, self.config.IMAGE_SIZE))
             return torch.stack(frames)
+
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         frame_indices = np.linspace(0, total_frames - 1, self.config.FRAME_COUNT, dtype=int)
+        
         for i in frame_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, i)
             ret, frame = cap.read()
@@ -67,14 +80,21 @@ class CremaDDataset(Dataset):
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frames.append(self.video_transform(frame))
         cap.release()
+
         while len(frames) < self.config.FRAME_COUNT:
             frames.append(torch.zeros(3, self.config.IMAGE_SIZE, self.config.IMAGE_SIZE))
+            
         return torch.stack(frames)
 
 
 def create_data_loaders(train_df, test_df, tokenizer, config):
+    """Creates and returns the training and testing dataloaders."""
     train_dataset = CremaDDataset(train_df, tokenizer, config)
+    
+    # Ensure test set uses the same emotion-to-index mapping
     test_dataset = CremaDDataset(test_df, tokenizer, config, emotion_to_idx=train_dataset.emotion_to_idx)
+    
     train_loader = DataLoader(train_dataset, batch_size=config.BATCH_SIZE, shuffle=True, num_workers=4)
     test_loader = DataLoader(test_dataset, batch_size=config.BATCH_SIZE, num_workers=4)
+    
     return train_loader, test_loader, train_dataset.emotion_to_idx

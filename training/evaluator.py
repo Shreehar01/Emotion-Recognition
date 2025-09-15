@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 class Evaluator:
+    """Class for model evaluation and visualization of results."""
     def __init__(self, model, test_loader, device, class_names):
         self.model = model
         self.test_loader = test_loader
@@ -13,9 +14,11 @@ class Evaluator:
         self.class_names = class_names
 
     def evaluate(self):
+        """Performs evaluation and prints metrics."""
         self.model.eval()
         all_labels = []
         all_preds = []
+        
         with torch.no_grad():
             for batch in tqdm(self.test_loader, desc="Evaluating"):
                 text_ids = batch['text_ids'].to(self.device)
@@ -23,21 +26,29 @@ class Evaluator:
                 audio_features = batch['audio_features'].to(self.device)
                 video_features = batch['video_features'].to(self.device)
                 labels = batch['label'].to(self.device)
+
                 outputs = self.model(text_ids, attention_mask, audio_features, video_features)
                 _, predicted = torch.max(outputs.data, 1)
+                
                 all_labels.extend(labels.cpu().numpy())
                 all_preds.extend(predicted.cpu().numpy())
         
         accuracy = 100 * (np.array(all_preds) == np.array(all_labels)).sum() / len(all_labels)
+        print(f"\nAccuracy on test set: {accuracy:.2f}%")
         print("-" * 50)
+        
         self.show_classification_report(all_labels, all_preds)
         self.show_confusion_matrix(all_labels, all_preds)
 
     def show_classification_report(self, labels, preds):
+        """Prints the classification report."""
+        print("Classification Report:")
         print(classification_report(labels, preds, target_names=self.class_names))
         print("-" * 50)
         
     def show_confusion_matrix(self, labels, preds):
+        """Displays the confusion matrix."""
+        print("Confusion Matrix:")
         cm = confusion_matrix(labels, preds)
         plt.figure(figsize=(8, 6))
         sns.heatmap(cm, annot=True, fmt='d', xticklabels=self.class_names, yticklabels=self.class_names, cmap='Blues')

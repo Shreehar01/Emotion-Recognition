@@ -3,6 +3,12 @@ import pandas as pd
 from tqdm import tqdm
 
 def parse_crema_d_data(audio_path, video_path):
+    """
+    Parses the CREMA-D dataset to extract audio, video, and text info.
+    
+    Returns:
+        pd.DataFrame: A DataFrame containing paths and metadata.
+    """
     emotion_map = {
         'ANG': 'anger', 'DIS': 'disgust', 'FEA': 'fear',
         'HAP': 'happy', 'NEU': 'neutral', 'SAD': 'sadness'
@@ -15,14 +21,18 @@ def parse_crema_d_data(audio_path, video_path):
         'DFA': "Don't forget a jacket", 'ITS': "I think I've seen this before",
         'TSI': "The surface is slick", 'WSI': "We'll stop in a couple of minutes"
     }
+    
     data = []
+    
     for entry in tqdm(os.scandir(audio_path), desc="Parsing CREMA-D"):
         if entry.is_file() and entry.name.endswith('.wav'):
             parts = entry.name.split('_')
             if len(parts) == 4:
                 _, sentence_code, emotion_code, _ = parts
+                
                 video_file = entry.name.replace('.wav', '.flv')
                 full_video_path = os.path.join(video_path, video_file)
+
                 if emotion_code in emotion_map and sentence_code in sentence_map and os.path.exists(full_video_path):
                     data.append({
                         "audio_path": entry.path,
