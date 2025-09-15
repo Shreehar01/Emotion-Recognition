@@ -1,4 +1,4 @@
-Multimodal Emotion Recognition from Video, Audio, and Text
+## Multimodal Emotion Recognition from Video, Audio, and Text
 This project implements a trimodal deep learning model to recognize human emotions from video, audio, and text data. It uses the CREMA-D (Crowd-sourced Emotional Multimodal Actors Dataset) and leverages pre-trained models like BERT and ResNet for feature extraction, combining them to make a final emotion classification.
 
 This project was developed as an exploration into Multimodal Learning.    
